@@ -1,0 +1,43 @@
+{
+  "Random Forest": {
+    "model_type": "Random Forest",
+    "best_params": {
+      "max_depth": 10,
+      "min_samples_leaf": 1,
+      "min_samples_split": 5,
+      "n_estimators": 100
+    },
+    "mse": 408291404.78888977,
+    "rmse": 20206.221932585264,
+    "mae": 13573.472618532263,
+    "r2_score": 0.4262966720435736,
+    "feature_importance": {
+      "Crop_Name_encoded": 0.01670757878377449,
+      "Season_encoded": 0.0052692176532979675,
+      "Crop_Type_encoded": 0.5507737188962668,
+      "District_encoded": 0.00099965858667236,
+      "Soil_Nitrogen": 0.06598273891829713,
+      "Soil_Phosphorus": 0.07070387718571151,
+      "Soil_Potassium": 0.12232881473702326,
+      "Soil_pH": 0.052097236297542954,
+      "Soil_Moisture": 0.053429599504886564,
+      "Historical_Temperature": 0.00034363135911893154,
+      "Historical_Rainfall": 0.05074873806682316,
+      "Historical_Humidity": 0.0006183068996665936,
+      "Potential_Diseases_encoded": 0.009996883110917986
+    }
+  },
+  "XGBoost": {
+    "model_type": "XGBoost",
+    "best_params": {
+      "learning_rate": 0.2,
+      "max_depth": 3,
+      "n_estimators": 100,
+      "subsample": 0.8
+    },
+    "mse": 1132121.3387021597,
+    "rmse": 1064.0119072182226,
+    "mae": 817.2621808733259,
+    "r2_score": 0.9984092200520367,
+    "feature_importance": {
+      "Crop_Name_encoded": 
