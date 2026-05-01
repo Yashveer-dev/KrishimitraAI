@@ -1,0 +1,73 @@
+services:
+  # Backend API Service
+  - type: web
+    name: krishimitraai-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: krishimitraai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: krishimitraai-redis
+          property: connectionString
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+    directories:
+      - type: source
+        path: /app
+        mountPath: /app
+    autoDeploy: true
+
+  # PostgreSQL Database
+  - type: pserv
+    name: krishimitraai-db
+    runtime: postgres
+    plan: free
+    databases:
+      - name: krishimitraai
+    envVars:
+      - key: POSTGRES_DB
+        value: krishimitraai
+      - key: POSTGRES_USER
+        value: postgres
+    postgresVersion: 13
+
+  # Redis Cache
+  - type: redis
+    name: krishimitraai-redis
+    plan: free
+    ipAllowList: []
+
+  # Frontend Static Site
+  - type: web
+    name: krishimitraai-frontend
+    runtime: static
+    plan: free
+    buildCommand: npm run build
+    publishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: krishimitraai-backend
+          property: url
+    autoDeploy: true
+    directories:
+      - type: source
+        path: /app
+        mountPath: /app

@@ -2,22 +2,34 @@
 
 A comprehensive AI-powered crop yield prediction and farmer advisory system for Odisha districts.
 
+## 🚀 Deployment
+
+This project is configured for **Render.com** deployment only.
+
+### Quick Start with Render
+
+1. **Push to GitHub**
+2. **Create Render account** at https://render.com
+3. **Connect repository** and use `render.yaml` for automatic setup
+4. **Set environment variables** (OpenWeather API key, etc.)
+
+See [RENDER_DEPLOYMENT_GUIDE.md](./RENDER_DEPLOYMENT_GUIDE.md) for complete instructions.
+
 ## Architecture
 
 ```
 KrishimitraAI/
 ├── backend/                    # FastAPI Python backend
 │   ├── app/                   # Core application logic
-│   ├── models/                # Database models
 │   ├── ml/                    # Machine learning models and training
-│   ├── api/                   # API endpoints
-│   ├── database/              # Database configuration and migrations
-│   ├── utils/                 # Utility functions
-│   └── config/                # Configuration files
+│   ├── requirements-render.txt # Render-specific dependencies
 ├── frontend/                   # React frontend
 │   ├── src/
 │   │   ├── components/        # Reusable UI components
 │   │   ├── pages/            # Page components
+│   ├── package-render.json    # Render-compatible package
+├── render.yaml               # Render deployment configuration
+└── RENDER_DEPLOYMENT_GUIDE.md # Complete deployment guide
 │   │   ├── services/         # API service calls
 │   │   ├── utils/            # Frontend utilities
 │   │   └── assets/           # Static assets

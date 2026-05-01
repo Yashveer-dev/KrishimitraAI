@@ -18,6 +18,11 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+# Render-specific configuration
+if os.getenv('ENVIRONMENT') == 'production':
+    import logging
+    logging.basicConfig(level=logging.INFO)
+
 from ml.yield_prediction import CropYieldPredictor
 from ml.disease_detection import DiseaseDetectionAPI
 from ml.chatbot import ChatbotAPI
@@ -405,4 +410,6 @@ async def get_chat_history(session_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.getenv('PORT', 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
