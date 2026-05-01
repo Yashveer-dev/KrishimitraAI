@@ -167,3 +167,4 @@ For issues and support:
 2. Review logs for error messages
 3. Verify environment configuration
 4. Check Docker container status
+"# KrishimitraAI" 
