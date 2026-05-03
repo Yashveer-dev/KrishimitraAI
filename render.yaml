@@ -1,73 +1,61 @@
 services:
-  # Backend API Service
-  - type: web
-    name: krishimitraai-backend
-    runtime: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.0
-      - key: DATABASE_URL
-        fromDatabase:
-          name: krishimitraai-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: krishimitraai-redis
-          property: connectionString
-      - key: OPENWEATHER_API_KEY
-        sync: false
-      - key: SECRET_KEY
-        generateValue: true
-      - key: ENVIRONMENT
-        value: production
-      - key: DEBUG
-        value: false
-    directories:
-      - type: source
-        path: /app
-        mountPath: /app
-    autoDeploy: true
-
-  # PostgreSQL Database
-  - type: pserv
-    name: krishimitraai-db
-    runtime: postgres
-    plan: free
-    databases:
-      - name: krishimitraai
-    envVars:
-      - key: POSTGRES_DB
-        value: krishimitraai
-      - key: POSTGRES_USER
-        value: postgres
-    postgresVersion: 13
-
-  # Redis Cache
-  - type: redis
-    name: krishimitraai-redis
-    plan: free
-    ipAllowList: []
-
-  # Frontend Static Site
-  - type: web
-    name: krishimitraai-frontend
-    runtime: static
-    plan: free
-    buildCommand: npm run build
-    publishPath: build
-    envVars:
-      - key: REACT_APP_API_URL
-        fromService:
-          type: web
-          name: krishimitraai-backend
-          property: url
-    autoDeploy: true
-    directories:
-      - type: source
-        path: /app
-        mountPath: /app
+  # PostgreSQL Database Service
+  type: pserv
+  name: krishimitrai-db
+  env: python
+  plan: free
+  buildCommand: "echo 'No build required for PostgreSQL'"
+  startCommand: "echo 'PostgreSQL managed by Render'"
+  databaseName: krishimitrai_prod
+  user: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  connectionLimit: 90
+  
+  # FastAPI Backend Service
+  type: web
+  name: krishimitrai-api
+  env: python
+  plan: free
+  buildCommand: "pip install -r requirements.txt"
+  startCommand: "gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+  envVars:
+    - key: DATABASE_URL
+      value: ${DATABASE_URL}
+    - key: SECRET_KEY
+      value: ${SECRET_KEY}
+    - key: ENVIRONMENT
+      value: production
+    - key: OPENWEATHER_API_KEY
+      value: ${OPENWEATHER_API_KEY}
+    - key: ALLOWED_ORIGINS
+      value: ${ALLOWED_ORIGINS}
+    - key: POSTGRES_USER
+      sync: false
+    - key: POSTGRES_PASSWORD
+      sync: false
+    - key: POSTGRES_DB
+      sync: false
+    - key: POSTGRES_HOST
+      sync: false
+    - key: POSTGRES_PORT
+      sync: false
+  healthCheckPath: /health
+  autoDeploy: true
+  
+  # React Frontend Service
+  type: web
+  name: krishimitrai-frontend
+  env: static
+  plan: free
+  buildCommand: "cd frontend && npm install && npm run build"
+  startCommand: "cd frontend && npm start"
+  envVars:
+    - key: REACT_APP_API_URL
+      value: ${API_URL}
+  staticPublishPath: ./frontend/build
+  routes:
+    - type: redirect
+      source: /*
+      destination: /index.html
+  healthCheckPath: /
+  autoDeploy: true

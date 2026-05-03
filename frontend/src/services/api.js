@@ -29,8 +29,13 @@ export const fetchSoilHealth = async (districtId) => {
 
 // Yield Prediction APIs
 export const predictYield = async (predictionData) => {
-  const response = await api.post('/predict-yield', predictionData);
-  return response.data;
+  try {
+    const response = await api.post('/predict-yield', predictionData);
+    return response.data;
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
 };
 
 // Disease Detection APIs
@@ -41,11 +46,10 @@ export const startDiseaseDetection = async () => {
 
 export const submitDiseaseAnswer = async (params) => {
   const payload = {
-    session_id: params.sessionId,
-    question_id: parseInt(params.questionId),
+    session_id: params.session_id,
+    question_id: parseInt(params.question_id),
     answer: params.answer,
   };
-  console.log('Sending payload:', payload);
   const response = await api.post('/disease-detection/answer', payload);
   return response.data;
 };
@@ -82,16 +86,26 @@ export const fetchGovernmentSchemes = async () => {
 
 // Chatbot APIs
 export const createChatSession = async (userId) => {
-  const response = await api.post('/chatbot/session', { user_id: userId });
-  return response.data;
+  try {
+    const payload = { user_id: userId };
+    const response = await api.post('/chatbot/session', payload);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };
 
-export const sendChatMessage = async (sessionId, message) => {
-  const response = await api.post('/chatbot/message', {
-    session_id: sessionId,
-    message: message,
-  });
-  return response.data;
+export const sendChatMessage = async (params) => {
+  try {
+    const payload = {
+      session_id: params.session_id,
+      message: params.message,
+    };
+    const response = await api.post('/chatbot/message', payload);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const getChatHistory = async (sessionId) => {

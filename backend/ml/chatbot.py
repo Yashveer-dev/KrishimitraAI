@@ -261,72 +261,110 @@ class BilingualChatbot:
     
     def generate_response(self, text: str) -> ChatResponse:
         """Generate response for user query"""
-        language = self.detect_language(text)
-        category = self.categorize_query(text, language)
-        
-        # Get category data
-        category_map = {
-            QueryCategory.WEATHER: "weather",
-            QueryCategory.DISEASE: "disease",
-            QueryCategory.MARKET: "market",
-            QueryCategory.GENERAL: "general"
-        }
-        
-        category_key = category_map[category]
-        lang_key = "en" if language == Language.ENGLISH else "or"
-        
-        category_data = self.knowledge_base[category_key][lang_key]
-        
-        # Select response based on query content
-        response_text = category_data["responses"][0]
-        confidence = 0.8
-        
-        # Try to match specific patterns for better responses
-        for i, pattern in enumerate(category_data["patterns"]):
-            if re.search(pattern, text.lower()):
-                response_text = category_data["responses"][min(i, len(category_data["responses"]) - 1)]
-                confidence = 0.9
-                break
-        
-        # Get follow-up questions
-        follow_up_questions = category_data["follow_up"]
-        
-        # Store in conversation history
-        self.conversation_history.append({
-            "timestamp": datetime.now(),
-            "user_query": text,
-            "bot_response": response_text,
-            "language": language.value,
-            "category": category.value
-        })
-        
-        return ChatResponse(
-            text=response_text,
-            language=language,
-            category=category,
-            confidence=confidence,
-            follow_up_questions=follow_up_questions
-        )
-    
-    async def translate_text(self, text: str, target_language: Language) -> str:
-        """Translate text to target language (mock implementation)"""
-        # In production, integrate with Google Translate API or similar
-        cache_key = f"{text}_{target_language.value}"
-        
-        if cache_key in self.translation_cache:
-            return self.translation_cache[cache_key]
-        
-        # Mock translations for common phrases
-        mock_translations = {
-            "Hello! How can I help you today?_or": "ନମସ୍କାର! ମୁଁ ଆଜି ଆପଣଙ୍କୁ କିଭଳି ସାହାଯ୍ୟ କରିପାରିବି?",
-            "Today's weather is partly cloudy_en": "ଆଜି ଆଂଶିକ ମେଘୁଆ ଆବହାବା",
-            "Current rice price is ₹2100 per quintal_or": "ବର୍ତ୍ତମାନ ଧାନ ମୂଲ୍ୟ ପ୍ରତି କ୍ୱିଣ୍ଟାଲ୍ ₹2100"
-        }
-        
-        translated = mock_translations.get(cache_key, text)
-        self.translation_cache[cache_key] = translated
-        
-        return translated
+        try:
+            # Input validation
+            if not text or not isinstance(text, str):
+                text = str(text) if text else "hello"
+            
+            text = text.strip()
+            if len(text) == 0:
+                text = "hello"
+            elif len(text) > 1000:
+                text = text[:1000] + "..."  # Truncate very long messages
+            
+            language = self.detect_language(text)
+            category = self.categorize_query(text, language)
+            
+            # Get category data
+            category_map = {
+                QueryCategory.WEATHER: "weather",
+                QueryCategory.DISEASE: "disease",
+                QueryCategory.MARKET: "market",
+                QueryCategory.GENERAL: "general"
+            }
+            
+            category_key = category_map[category]
+            lang_key = "en" if language == Language.ENGLISH else "or"
+            
+            # Safe access to knowledge base
+            if category_key not in self.knowledge_base or lang_key not in self.knowledge_base[category_key]:
+                raise ValueError(f"Invalid category or language: {category_key}, {lang_key}")
+            
+            category_data = self.knowledge_base[category_key][lang_key]
+            
+            # Select response based on query content
+            response_text = category_data["responses"][0] if category_data["responses"] else "I'm here to help with your farming questions."
+            confidence = 0.8
+            
+            # Try to match specific patterns for better responses
+            for i, pattern in enumerate(category_data["patterns"]):
+                try:
+                    if re.search(pattern, text.lower()):
+                        response_text = category_data["responses"][min(i, len(category_data["responses"]) - 1)]
+                        confidence = 0.9
+                        break
+                except re.error:
+                    continue  # Skip invalid regex patterns
+            
+            # Get follow-up questions
+            follow_up_questions = category_data.get("follow_up", [])
+            
+            # Validate response text
+            if not response_text or not isinstance(response_text, str):
+                response_text = "I'm here to help with your farming questions."
+                confidence = 0.5
+            
+            response_text = response_text.strip()
+            if len(response_text) == 0:
+                response_text = "I'm here to help with your farming questions."
+            
+            # Validate confidence
+            if not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
+                confidence = 0.5
+            
+            # Validate follow-up questions
+            if not isinstance(follow_up_questions, list):
+                follow_up_questions = []
+            
+            follow_up_questions = [q for q in follow_up_questions if isinstance(q, str) and len(q.strip()) > 0]
+            if len(follow_up_questions) == 0:
+                follow_up_questions = [
+                    "Would you like to check today's weather?",
+                    "Do you need help with crop disease identification?",
+                    "Are you looking for current market prices?"
+                ]
+            
+            # Add to conversation history
+            self.conversation_history.append({
+                "user_message": text,
+                "bot_response": response_text,
+                "language": language.value,
+                "category": category.value,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            return ChatResponse(
+                text=response_text,
+                language=language,
+                category=category,
+                confidence=float(confidence),
+                follow_up_questions=follow_up_questions[:3]  # Limit to 3 questions
+            )
+            
+        except Exception as e:
+            print(f"Critical error in generate_response: {e}")
+            # Last resort fallback
+            return ChatResponse(
+                text="I'm experiencing some technical difficulties, but I'm here to help with farming questions.",
+                language=Language.ENGLISH,
+                category=QueryCategory.GENERAL,
+                confidence=0.2,
+                follow_up_questions=[
+                    "Would you like to try asking again?",
+                    "Do you need weather information?",
+                    "Are you looking for crop advice?"
+                ]
+            )
     
     def get_conversation_history(self, limit: int = 10) -> List[Dict]:
         """Get recent conversation history"""

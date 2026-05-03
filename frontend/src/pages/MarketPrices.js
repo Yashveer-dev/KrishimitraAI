@@ -6,6 +6,7 @@ import { fetchMarketPrices, fetchDistricts } from '../services/api';
 const MarketPrices = () => {
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedCrop, setSelectedCrop] = useState('');
+  const [selectedMandi, setSelectedMandi] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch data
@@ -99,8 +100,8 @@ const MarketPrices = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mandi</label>
             <select
-              value={selectedCrop}
-              onChange={(e) => setSelectedCrop(e.target.value)}
+              value={selectedMandi}
+              onChange={(e) => setSelectedMandi(e.target.value)}
               className="input-field"
             >
               <option value="">All Mandis</option>

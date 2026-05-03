@@ -1,81 +1,94 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMutation } from 'react-query';
 import { MessageCircle, Send, Bot, User, Globe, Volume2 } from 'lucide-react';
+import { createChatSession, sendChatMessage, getChatHistory } from '../services/api';
 
 const Chatbot = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [sessionId, setSessionId] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [userId] = useState('user_' + Date.now());
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Mock chatbot API calls (in production, these would call the actual backend)
-  const createSessionMutation = useMutation(
-    async () => {
-      // Mock session creation
-      return { session_id: 'mock-session-' + Date.now() };
+  // Create chat session mutation
+  const createSessionMutation = useMutation(createChatSession, {
+    onSuccess: (data) => {
+      setSessionId(data.session_id);
+    },
+    onError: (error) => {
+      console.error('Failed to create chat session:', error);
     }
-  );
+  });
 
-  const sendMessageMutation = useMutation(
-    async ({ sessionId, message }) => {
-      // Mock API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock response logic
-      const responses = {
-        'english': {
-          'weather': "Today's weather is partly cloudy with temperature between 25-32°C and 65% humidity. Light rain expected in the evening.",
-          'disease': "I can help you identify crop diseases. Please describe the symptoms you're seeing on your plants.",
-          'market': "Current rice price in Khordha mandi is ₹2100 per quintal with increasing trend. Good time to sell!",
-          'general': "Hello! I'm KrishimitraAI, your farming assistant. I can help with weather, disease detection, market prices, and crop advice."
-        },
-        'odia': {
-          'weather': "ଆଜି ଆଂଶିକ ମେଘୁଆ ଆବହାବା ଅଛି ଏବଂ ତାପମାତ୍ର ୨୫-୩୨°C ମଧ୍ୟରେ ଅଛି। ସନ୍ଧ୍ୟାରେ ହାଲୁକା ବୃଷ୍ଟି ଆଶା କରାଯାଉଛି।",
-          'disease': "ମୁଁ ଆପଣଙ୍କୁ ଫସଲ ରୋଗ ଚିହ୍ନିବାରେ ସାହାଯ୍ୟ କରିପାରିବ। ଦୟାକରି ଆପଣ ଯାହା ଦେଖୁଛନ୍ତି ତାହା ବର୍ଣ୍ଣନା କରନ୍ତୁ।",
-          'market': "ଖୋର୍ଦ୍ଧା ମଣ୍ଡିରେ ବର୍ତ୍ତମାନ ଧାନ ମୂଲ୍ୟ ପ୍ରତି କ୍ୱିଣ୍ଟାଲ୍ ₹2100 ଏବଂ ବଢ଼ିବା ପ୍ରବଣତା ସହିତ।",
-          'general': "ନମସ୍କାର! ମୁଁ କୃଷିମିତ୍ରAI, ଆପଣଙ୍କର କୃଷି ସହାୟକ। ମୁଁ ଆବହାବା, ରୋଗ ଚିହ୍ନା, ବଜାର ମୂଲ୍ୟ ଏବଂ ଫସଲ ପରାମର୍ଶରେ ସାହାଯ୍ୟ କରିପାରିବ।"
-        }
-      };
-
-      // Detect language and category
-      const isOdia = /[\u0B00-\u0B7F]/.test(message);
-      const language = isOdia ? 'odia' : 'english';
-      
-      let category = 'general';
-      if (message.toLowerCase().includes('weather') || message.includes('ଆବହାବା')) {
-        category = 'weather';
-      } else if (message.toLowerCase().includes('disease') || message.includes('ରୋଗ')) {
-        category = 'disease';
-      } else if (message.toLowerCase().includes('price') || message.includes('ଦାମ') || message.includes('market') || message.includes('ବଜାର')) {
-        category = 'market';
+  // Send message mutation
+  const sendMessageMutation = useMutation(sendChatMessage, {
+    onSuccess: (data) => {
+      // Validate response data structure
+      if (!data || !data.response) {
+        throw new Error("Invalid response format");
       }
-
-      const responseText = responses[language][category];
-      const followUpQuestions = category === 'weather' 
-        ? ["Would you like weather forecast for the next 3 days?", "Do you need specific advice for your crop?"]
-        : category === 'disease'
-        ? ["Would you like to start the disease detection process?", "Can you describe the leaf symptoms?"]
-        : category === 'market'
-        ? ["Which district's mandi prices are you looking for?", "Do you need prices for a specific crop?"]
-        : ["Would you like to check today's weather?", "Do you need help with crop disease identification?"];
-
-      return {
-        response: {
-          text: responseText,
-          language: language,
-          category: category,
-          confidence: 0.9,
-          follow_up_questions: followUpQuestions
-        }
+      
+      const response = data.response;
+      
+      // Validate required fields
+      if (!response.text || typeof response.text !== 'string') {
+        throw new Error("Invalid response text");
+      }
+      
+      const botMessage = {
+        id: Date.now() + 1,
+        text: response.text.trim() || "I'm here to help with your farming questions.",
+        sender: 'bot',
+        language: response.language === 'en' ? 'English' : response.language === 'or' ? 'Odia' : 'English',
+        category: response.category || 'general',
+        confidence: typeof response.confidence === 'number' ? response.confidence : 0.5,
+        followUpQuestions: Array.isArray(response.follow_up_questions) ? response.follow_up_questions : [],
+        timestamp: new Date()
       };
+      setMessages(prev => [...prev, botMessage]);
+      setIsTyping(false);
+    },
+    onError: (error) => {
+      console.error('Chatbot error:', error);
+      
+      // Provide context-aware error messages
+      let errorText = "Sorry, I'm having trouble responding right now. Please try again.";
+      
+      if (error.message?.includes('Invalid session')) {
+        errorText = "Session expired. Please refresh the page and try again.";
+      } else if (error.message?.includes('Invalid response')) {
+        errorText = "I couldn't process that request properly. Could you rephrase your question?";
+      } else if (error.response?.status === 422) {
+        errorText = "There was an issue with your message format. Please try again.";
+      } else if (error.response?.status >= 500) {
+        errorText = "Server is experiencing issues. Please try again in a moment.";
+      }
+      
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: errorText,
+        sender: 'bot',
+        language: 'English',
+        category: 'error',
+        confidence: 0,
+        followUpQuestions: [
+          "Would you like to try asking in a different way?",
+          "Do you need help with weather information?",
+          "Are you looking for crop advice?"
+        ],
+        timestamp: new Date(),
+        isError: true
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setIsTyping(false);
     }
-  );
+  });
 
   // Initialize session
   useEffect(() => {
-    createSessionMutation.mutate();
+    createSessionMutation.mutate(userId);
   }, []);
 
   // Auto-scroll to bottom
@@ -95,11 +108,12 @@ const Chatbot = () => {
   const handleSendMessage = () => {
     if (!inputMessage.trim() || sendMessageMutation.isLoading) return;
 
+    const messageToSend = inputMessage;
     const userMessage = {
       id: Date.now(),
-      text: inputMessage,
+      text: messageToSend,
       sender: 'user',
-      language: detectLanguage(inputMessage),
+      language: detectLanguage(messageToSend),
       timestamp: new Date()
     };
 
@@ -108,37 +122,14 @@ const Chatbot = () => {
     setIsTyping(true);
 
     // Send to bot
-    const mockSessionId = sessionId || createSessionMutation.data?.session_id || 'mock-session';
-    sendMessageMutation.mutate(
-      { sessionId: mockSessionId, message: inputMessage },
-      {
-        onSuccess: (data) => {
-          const botMessage = {
-            id: Date.now() + 1,
-            text: data.response.text,
-            sender: 'bot',
-            language: data.response.language === 'or' ? 'Odia' : 'English',
-            category: data.response.category,
-            confidence: data.response.confidence,
-            followUpQuestions: data.response.follow_up_questions,
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, botMessage]);
-          setIsTyping(false);
-        },
-        onError: () => {
-          const errorMessage = {
-            id: Date.now() + 1,
-            text: "Sorry, I'm having trouble responding right now. Please try again.",
-            sender: 'bot',
-            language: 'English',
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, errorMessage]);
-          setIsTyping(false);
-        }
-      }
-    );
+    const actualSessionId = sessionId || createSessionMutation.data?.session_id;
+    if (actualSessionId) {
+      const payload = {
+        session_id: actualSessionId,
+        message: messageToSend
+      };
+      sendMessageMutation.mutate(payload);
+    }
   };
 
   const handleKeyPress = (e) => {

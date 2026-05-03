@@ -22,7 +22,6 @@ const DiseaseDetection = () => {
       setAnswers({});
     },
     onError: (error) => {
-      console.error('Failed to start session:', error);
     }
   });
 
@@ -39,7 +38,8 @@ const DiseaseDetection = () => {
       }
     },
     onError: (error) => {
-      console.error('Failed to submit answer:', error);
+      // Show user-friendly error message
+      alert('Failed to submit answer. Please try again.');
     }
   });
 
@@ -49,22 +49,38 @@ const DiseaseDetection = () => {
   }, []);
 
   const handleAnswerSubmit = (answer) => {
-    if (!currentQuestion || !sessionId) return;
-
-    console.log('Current data:', { sessionId, currentQuestion, answer });
+    // Validate required data before API call
+    if (!currentQuestion) {
+      return;
+    }
     
+    if (!sessionId) {
+      return;
+    }
+
+    const questionId = currentQuestion?.id;
+    if (!questionId || isNaN(questionId)) {
+      return;
+    }
+
+    if (!answer || answer.trim() === '') {
+      return;
+    }
+
     setAnswers(prev => ({
       ...prev,
-      [currentQuestion.id]: answer
+      [questionId]: {
+        question: currentQuestion.text,
+        answer: answer
+      }
     }));
-
+    
     const mutationData = {
-      sessionId: sessionId,
-      questionId: parseInt(currentQuestion.id),
-      answer: answer
+      session_id: sessionId,
+      question_id: parseInt(questionId),
+      answer: answer.trim()
     };
     
-    console.log('Mutation data:', mutationData);
     submitAnswerMutation.mutate(mutationData);
   };
 
@@ -300,7 +316,8 @@ const DiseaseDetection = () => {
               {Object.entries(answers).map(([questionId, answer]) => (
                 <div key={questionId} className="border-l-4 border-primary-500 pl-3">
                   <p className="text-sm font-medium text-gray-700">Question {questionId}</p>
-                  <p className="text-sm text-gray-600">{answer}</p>
+                  <p className="text-sm text-gray-600">{answer.question}</p>
+                  <p className="text-sm text-gray-600">{answer.answer}</p>
                 </div>
               ))}
               {Object.keys(answers).length === 0 && (

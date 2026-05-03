@@ -45,7 +45,25 @@ const YieldPrediction = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    predictionMutation.mutate(formData);
+    
+    // Map frontend field names to backend expected field names
+    const backendFormData = {
+      crop_name: formData.crop_name,
+      season: formData.season,
+      crop_type: formData.crop_type,
+      district: formData.district,
+      soil_nitrogen: formData.soil_nitrogen,
+      soil_phosphorus: formData.soil_phosphorus,
+      soil_potassium: formData.soil_potassium,
+      soil_ph: formData.soil_ph,
+      soil_moisture: formData.soil_moisture,
+      historical_temperature: formData.historical_temperature,
+      historical_rainfall: formData.historical_rainfall,
+      historical_humidity: formData.historical_humidity,
+      potential_diseases: formData.potential_diseases
+    };
+    
+    predictionMutation.mutate(backendFormData);
   };
 
   const resetForm = () => {
@@ -333,36 +351,76 @@ const YieldPrediction = () => {
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4">
-                    {predictions.predictions.random_forest && (
+                    {predictions.predictions.RandomForest && (
                       <div className="p-4 bg-blue-50 rounded-lg">
                         <h4 className="font-medium text-blue-900">Random Forest Model</h4>
                         <p className="text-2xl font-bold text-blue-900">
-                          {predictions.predictions.random_forest.toFixed(2)} kg/ha
+                          {predictions.predictions.RandomForest.toFixed(2)} kg/ha
                         </p>
                       </div>
                     )}
                     
-                    {predictions.predictions.xgboost && (
+                    {predictions.predictions.XGBoost && (
                       <div className="p-4 bg-green-50 rounded-lg">
                         <h4 className="font-medium text-green-900">XGBoost Model</h4>
                         <p className="text-2xl font-bold text-green-900">
-                          {predictions.predictions.xgboost.toFixed(2)} kg/ha
+                          {predictions.predictions.XGBoost.toFixed(2)} kg/ha
                         </p>
                       </div>
                     )}
                     
-                    {predictions.predictions.ensemble && (
+                    {predictions.predictions.Ensemble && (
                       <div className="p-4 bg-purple-50 rounded-lg">
                         <h4 className="font-medium text-purple-900">Ensemble Prediction</h4>
                         <p className="text-2xl font-bold text-purple-900">
-                          {predictions.predictions.ensemble.toFixed(2)} kg/ha
+                          {predictions.predictions.Ensemble.toFixed(2)} kg/ha
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+          
+          {predictions && (
+            <>
+              <div className="space-y-6">
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span>Financial Analysis</span>
+                  </h3>
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <h4 className="font-medium text-green-900">Est. Revenue</h4>
+                    <p className="text-green-800 text-sm mt-1">
+                      ₹{(predictions.predictions.Ensemble * 25).toLocaleString('en-IN')} per hectare
+                    </p>
+                  </div>
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <h4 className="font-medium text-yellow-900">Est. Production Cost</h4>
+                    <p className="text-yellow-800 text-sm mt-1">
+                      ₹{(predictions.predictions.Ensemble * 8).toLocaleString('en-IN')} per hectare
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900">Est. Profit</h4>
+                    <p className="text-blue-800 text-sm mt-1">
+                      ₹{((predictions.predictions.Ensemble * 25) - (predictions.predictions.Ensemble * 8)).toLocaleString('en-IN')} per hectare
+                    </p>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-lg">
+                    <h4 className="font-medium text-purple-900">Profit Margin</h4>
+                    <p className="text-purple-800 text-sm mt-1">
+                      {((((predictions.predictions.Ensemble * 25) - (predictions.predictions.Ensemble * 8)) / (predictions.predictions.Ensemble * 25)) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            <div className="space-y-6">
               <div className="card">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
                   <CheckCircle className="h-5 w-5 text-green-600" />
@@ -384,6 +442,7 @@ const YieldPrediction = () => {
                 </div>
               </div>
             </div>
+            </>
           )}
         </div>
       </div>

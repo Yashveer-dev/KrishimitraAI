@@ -151,11 +151,8 @@ const Dashboard = () => {
   };
 
   const handleAskAssistant = () => {
-    // Open chat functionality or navigate to chat
-    const userMessage = prompt('How can I help you with your farming needs?');
-    if (userMessage) {
-      alert(`Assistant: You asked about "${userMessage}". Chat feature coming soon!`);
-    }
+    // Navigate to chatbot page
+    window.location.href = '/chatbot';
   };
 
   return (

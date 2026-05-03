@@ -188,10 +188,14 @@ class DiseaseDetectionEngine:
     
     def submit_answer(self, question_id: int, answer: str) -> bool:
         """Submit an answer and move to next question"""
-        if question_id != self.questions[self.current_question_index].id:
+        # Convert both to integers for comparison
+        question_id_int = int(question_id)
+        expected_id_int = int(self.questions[self.current_question_index].id)
+        
+        if question_id_int != expected_id_int:
             return False
         
-        self.user_answers[question_id] = answer
+        self.user_answers[question_id_int] = answer
         self.current_question_index += 1
         return True
     
@@ -263,23 +267,26 @@ class DiseaseDetectionEngine:
 
 class DiseaseDetectionAPI:
     def __init__(self):
-        self.engine = DiseaseDetectionEngine()
         self.session_data = {}  # In production, use Redis or database
     
     def start_diagnosis_session(self, session_id: str) -> Dict:
         """Start a new diagnosis session"""
-        self.engine.reset_diagnosis()
+        # Create a new engine instance for each session
+        engine = DiseaseDetectionEngine()
+        engine.reset_diagnosis()
+        
         self.session_data[session_id] = {
             "started": True,
-            "current_question": self.engine.get_current_question(),
-            "progress": 0.0
+            "current_question": engine.get_current_question(),
+            "progress": 0.0,
+            "engine": engine  # Store engine instance with session
         }
         
         return {
             "session_id": session_id,
-            "question": self.engine.get_current_question(),
+            "question": engine.get_current_question(),
             "progress": 0.0,
-            "total_questions": len(self.engine.questions)
+            "total_questions": len(engine.questions)
         }
     
     def submit_answer(self, session_id: str, question_id: int, answer: str) -> Dict:
@@ -287,13 +294,16 @@ class DiseaseDetectionAPI:
         if session_id not in self.session_data:
             return {"error": "Invalid session"}
         
-        success = self.engine.submit_answer(question_id, answer)
+        # Get session-specific engine
+        engine = self.session_data[session_id]["engine"]
+        
+        success = engine.submit_answer(question_id, answer)
         
         if not success:
             return {"error": "Invalid question ID or order"}
         
-        current_question = self.engine.get_current_question()
-        progress = self.engine.get_progress_percentage()
+        current_question = engine.get_current_question()
+        progress = engine.get_progress_percentage()
         
         self.session_data[session_id]["current_question"] = current_question
         self.session_data[session_id]["progress"] = progress
@@ -307,12 +317,10 @@ class DiseaseDetectionAPI:
         
         # If diagnosis is complete, provide results
         if current_question is None:
-            disease, confidence = self.engine.diagnose_disease()
-            response["diagnosis"] = {
-                "disease": disease.name if disease else None,
-                "confidence": confidence,
-                "summary": self.engine.get_diagnosis_summary() if disease else None
-            }
+            diagnosis, confidence = engine.diagnose_disease()
+            if diagnosis:
+                response["diagnosis"] = engine.get_diagnosis_summary()
+                response["confidence"] = confidence
         
         return response
     

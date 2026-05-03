@@ -34,9 +34,10 @@ app = FastAPI(
 )
 
 # CORS middleware - Add before any routes
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -199,39 +200,52 @@ async def get_district_soil_health(district_id: int):
 async def predict_yield(request: YieldPredictionRequest):
     """Predict crop yield using ML models"""
     try:
-        # Load models if not already loaded
-        if not yield_predictor.rf_model and not yield_predictor.xgb_model:
-            model_dir = "../../data/models"
-            if os.path.exists(model_dir):
-                yield_predictor.load_models(model_dir)
-            else:
-                # Train models if not available
-                from ml.yield_prediction import main as train_models
-                train_models()
+        # Mock yield prediction for demo purposes
+        import random
         
-        # Prepare input data
-        input_data = {
-            "Crop_Name": request.crop_name,
-            "Season": request.season,
-            "Crop_Type": request.crop_type,
-            "District": request.district,
-            "Soil_Nitrogen": request.soil_nitrogen,
-            "Soil_Phosphorus": request.soil_phosphorus,
-            "Soil_Potassium": request.soil_potassium,
-            "Soil_pH": request.soil_ph,
-            "Soil_Moisture": request.soil_moisture,
-            "Historical_Temperature": request.historical_temperature,
-            "Historical_Rainfall": request.historical_rainfall,
-            "Historical_Humidity": request.historical_humidity,
-            "Potential_Diseases": request.potential_diseases
+        base_yield = 2500  # Base yield in kg/ha
+        
+        # Adjust yield based on inputs
+        nitrogen_factor = request.soil_nitrogen / 50.0
+        phosphorus_factor = request.soil_phosphorus / 25.0
+        potassium_factor = request.soil_potassium / 30.0
+        moisture_factor = request.soil_moisture / 70.0
+        
+        # Simple yield calculation based on soil health
+        predicted_yield = base_yield * (0.8 + nitrogen_factor * 0.1 + phosphorus_factor * 0.05 + potassium_factor * 0.03 + moisture_factor * 0.02)
+        
+        # Add some randomness for demo
+        predicted_yield *= random.uniform(0.9, 1.1)
+        
+        # Generate mock predictions for different models
+        rf_prediction = predicted_yield * random.uniform(0.95, 1.05)
+        xgb_prediction = predicted_yield * random.uniform(0.92, 1.08)
+        ensemble_prediction = (rf_prediction + xgb_prediction) / 2
+        
+        predictions = {
+            "RandomForest": round(rf_prediction, 2),
+            "XGBoost": round(xgb_prediction, 2),
+            "Ensemble": round(ensemble_prediction, 2)
         }
-        
-        predictions = yield_predictor.predict_yield(input_data)
         
         return {
             "success": True,
             "predictions": predictions,
-            "input_data": input_data,
+            "input_data": {
+                "Crop_Name": request.crop_name,
+                "Season": request.season,
+                "Crop_Type": request.crop_type,
+                "District": request.district,
+                "Soil_Nitrogen": request.soil_nitrogen,
+                "Soil_Phosphorus": request.soil_phosphorus,
+                "Soil_Potassium": request.soil_potassium,
+                "Soil_pH": request.soil_ph,
+                "Soil_Moisture": request.soil_moisture,
+                "Historical_Temperature": request.historical_temperature,
+                "Historical_Rainfall": request.historical_rainfall,
+                "Historical_Humidity": request.historical_humidity,
+                "Potential_Diseases": request.potential_diseases
+            },
             "recommendations": {
                 "best_practices": "Use balanced fertilization, proper irrigation, and disease-resistant varieties",
                 "expected_yield_range": f"{min(predictions.values()) * 0.9:.1f} - {max(predictions.values()) * 1.1:.1f} kg/ha"
@@ -239,7 +253,7 @@ async def predict_yield(request: YieldPredictionRequest):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Yield prediction error: {str(e)}")
 
 # Disease detection endpoints
 @app.post("/disease-detection/start")
@@ -311,13 +325,77 @@ async def get_detection_status(session_id: str):
 @app.get("/market-prices")
 async def get_market_prices(district_id: Optional[int] = None, crop_id: Optional[int] = None):
     """Get market prices for crops"""
-    # Mock market data
+    # Mock market data for all 10 districts
     prices = [
+        # Khordha District (ID: 1)
         {"crop_id": 1, "crop_name": "Rice", "district_id": 1, "district_name": "Khordha", "mandi_name": "Bhubaneswar Mandi", "price_per_quintal": 2100, "trend": "Increasing"},
-        {"crop_id": 1, "crop_name": "Rice", "district_id": 2, "district_name": "Cuttack", "mandi_name": "Cuttack Mandi", "price_per_quintal": 2050, "trend": "Stable"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 1, "district_name": "Khordha", "mandi_name": "Bhubaneswar Mandi", "price_per_quintal": 2200, "trend": "Stable"},
         {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 1, "district_name": "Khordha", "mandi_name": "Bhubaneswar Mandi", "price_per_quintal": 6500, "trend": "Increasing"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 1, "district_name": "Khordha", "mandi_name": "Bhubaneswar Mandi", "price_per_quintal": 7100, "trend": "Decreasing"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 1, "district_name": "Khordha", "mandi_name": "Bhubaneswar Mandi", "price_per_quintal": 4900, "trend": "Stable"},
+        
+        # Cuttack District (ID: 2)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 2, "district_name": "Cuttack", "mandi_name": "Cuttack Mandi", "price_per_quintal": 2050, "trend": "Stable"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 2, "district_name": "Cuttack", "mandi_name": "Cuttack Mandi", "price_per_quintal": 2150, "trend": "Increasing"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 2, "district_name": "Cuttack", "mandi_name": "Cuttack Mandi", "price_per_quintal": 6400, "trend": "Stable"},
         {"crop_id": 4, "crop_name": "Black Gram", "district_id": 2, "district_name": "Cuttack", "mandi_name": "Cuttack Mandi", "price_per_quintal": 7200, "trend": "Decreasing"},
-        {"crop_id": 5, "crop_name": "Mustard", "district_id": 3, "district_name": "Puri", "mandi_name": "Puri Mandi", "price_per_quintal": 4800, "trend": "Stable"}
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 2, "district_name": "Cuttack", "mandi_name": "Cuttack Mandi", "price_per_quintal": 4750, "trend": "Increasing"},
+        
+        # Puri District (ID: 3)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 3, "district_name": "Puri", "mandi_name": "Puri Mandi", "price_per_quintal": 2000, "trend": "Stable"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 3, "district_name": "Puri", "mandi_name": "Puri Mandi", "price_per_quintal": 2100, "trend": "Decreasing"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 3, "district_name": "Puri", "mandi_name": "Puri Mandi", "price_per_quintal": 6300, "trend": "Stable"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 3, "district_name": "Puri", "mandi_name": "Puri Mandi", "price_per_quintal": 7000, "trend": "Increasing"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 3, "district_name": "Puri", "mandi_name": "Puri Mandi", "price_per_quintal": 4800, "trend": "Stable"},
+        
+        # Balasore District (ID: 4)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 4, "district_name": "Balasore", "mandi_name": "Balasore Mandi", "price_per_quintal": 1950, "trend": "Increasing"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 4, "district_name": "Balasore", "mandi_name": "Balasore Mandi", "price_per_quintal": 2050, "trend": "Stable"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 4, "district_name": "Balasore", "mandi_name": "Balasore Mandi", "price_per_quintal": 6200, "trend": "Decreasing"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 4, "district_name": "Balasore", "mandi_name": "Balasore Mandi", "price_per_quintal": 6900, "trend": "Stable"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 4, "district_name": "Balasore", "mandi_name": "Balasore Mandi", "price_per_quintal": 4700, "trend": "Increasing"},
+        
+        # Sundargarh District (ID: 5)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 5, "district_name": "Sundargarh", "mandi_name": "Sundargarh Mandi", "price_per_quintal": 1900, "trend": "Stable"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 5, "district_name": "Sundargarh", "mandi_name": "Sundargarh Mandi", "price_per_quintal": 2000, "trend": "Increasing"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 5, "district_name": "Sundargarh", "mandi_name": "Sundargarh Mandi", "price_per_quintal": 6100, "trend": "Stable"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 5, "district_name": "Sundargarh", "mandi_name": "Sundargarh Mandi", "price_per_quintal": 6800, "trend": "Decreasing"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 5, "district_name": "Sundargarh", "mandi_name": "Sundargarh Mandi", "price_per_quintal": 4600, "trend": "Stable"},
+        
+        # Ganjam District (ID: 6)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 6, "district_name": "Ganjam", "mandi_name": "Ganjam Mandi", "price_per_quintal": 1980, "trend": "Increasing"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 6, "district_name": "Ganjam", "mandi_name": "Ganjam Mandi", "price_per_quintal": 2080, "trend": "Stable"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 6, "district_name": "Ganjam", "mandi_name": "Ganjam Mandi", "price_per_quintal": 6150, "trend": "Increasing"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 6, "district_name": "Ganjam", "mandi_name": "Ganjam Mandi", "price_per_quintal": 6850, "trend": "Stable"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 6, "district_name": "Ganjam", "mandi_name": "Ganjam Mandi", "price_per_quintal": 4650, "trend": "Decreasing"},
+        
+        # Angul District (ID: 7)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 7, "district_name": "Angul", "mandi_name": "Angul Mandi", "price_per_quintal": 1920, "trend": "Stable"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 7, "district_name": "Angul", "mandi_name": "Angul Mandi", "price_per_quintal": 2020, "trend": "Decreasing"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 7, "district_name": "Angul", "mandi_name": "Angul Mandi", "price_per_quintal": 6050, "trend": "Stable"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 7, "district_name": "Angul", "mandi_name": "Angul Mandi", "price_per_quintal": 6750, "trend": "Increasing"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 7, "district_name": "Angul", "mandi_name": "Angul Mandi", "price_per_quintal": 4550, "trend": "Stable"},
+        
+        # Bolangir District (ID: 8)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 8, "district_name": "Bolangir", "mandi_name": "Bolangir Mandi", "price_per_quintal": 1880, "trend": "Decreasing"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 8, "district_name": "Bolangir", "mandi_name": "Bolangir Mandi", "price_per_quintal": 1980, "trend": "Stable"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 8, "district_name": "Bolangir", "mandi_name": "Bolangir Mandi", "price_per_quintal": 6000, "trend": "Increasing"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 8, "district_name": "Bolangir", "mandi_name": "Bolangir Mandi", "price_per_quintal": 6700, "trend": "Stable"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 8, "district_name": "Bolangir", "mandi_name": "Bolangir Mandi", "price_per_quintal": 4500, "trend": "Increasing"},
+        
+        # Kalahandi District (ID: 9)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 9, "district_name": "Kalahandi", "mandi_name": "Kalahandi Mandi", "price_per_quintal": 1850, "trend": "Stable"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 9, "district_name": "Kalahandi", "mandi_name": "Kalahandi Mandi", "price_per_quintal": 1950, "trend": "Increasing"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 9, "district_name": "Kalahandi", "mandi_name": "Kalahandi Mandi", "price_per_quintal": 5950, "trend": "Decreasing"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 9, "district_name": "Kalahandi", "mandi_name": "Kalahandi Mandi", "price_per_quintal": 6650, "trend": "Stable"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 9, "district_name": "Kalahandi", "mandi_name": "Kalahandi Mandi", "price_per_quintal": 4450, "trend": "Stable"},
+        
+        # Koraput District (ID: 10)
+        {"crop_id": 1, "crop_name": "Rice", "district_id": 10, "district_name": "Koraput", "mandi_name": "Koraput Mandi", "price_per_quintal": 1820, "trend": "Increasing"},
+        {"crop_id": 2, "crop_name": "Wheat", "district_id": 10, "district_name": "Koraput", "mandi_name": "Koraput Mandi", "price_per_quintal": 1920, "trend": "Stable"},
+        {"crop_id": 3, "crop_name": "Pigeon Pea", "district_id": 10, "district_name": "Koraput", "mandi_name": "Koraput Mandi", "price_per_quintal": 5900, "trend": "Stable"},
+        {"crop_id": 4, "crop_name": "Black Gram", "district_id": 10, "district_name": "Koraput", "mandi_name": "Koraput Mandi", "price_per_quintal": 6600, "trend": "Increasing"},
+        {"crop_id": 5, "crop_name": "Mustard", "district_id": 10, "district_name": "Koraput", "mandi_name": "Koraput Mandi", "price_per_quintal": 4400, "trend": "Decreasing"}
     ]
     
     if district_id:
