@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation } from 'react-query';
 import { Bug, AlertTriangle, CheckCircle, ArrowRight, Loader } from 'lucide-react';
 import { startDiseaseDetection, submitDiseaseAnswer } from '../services/api';
 
@@ -11,7 +11,6 @@ const DiseaseDetection = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [diagnosis, setDiagnosis] = useState(null);
 
-  // Start disease detection session
   const startSessionMutation = useMutation(startDiseaseDetection, {
     onSuccess: (data) => {
       setSessionId(data.session_id);
@@ -21,112 +20,46 @@ const DiseaseDetection = () => {
       setDiagnosis(null);
       setAnswers({});
     },
-    onError: (error) => {
-    }
   });
 
-  // Submit answer mutation
   const submitAnswerMutation = useMutation(submitDiseaseAnswer, {
     onSuccess: (data) => {
-      // Validate response data
-      if (!data || typeof data !== 'object') {
-        console.error('Invalid response data:', data);
-        return;
-      }
-      
       setProgress(data.progress || 0);
-      
       if (data.completed) {
         setIsCompleted(true);
-        // Validate diagnosis data before setting
-        if (data.diagnosis && typeof data.diagnosis === 'object') {
-          setDiagnosis(data.diagnosis);
-        } else {
-          // Set empty diagnosis if data is invalid
-          setDiagnosis({
-            disease: null,
-            confidence: 0,
-            summary: {
-              disease: {
-                severity: null,
-                symptoms: null,
-                cause: null
-              },
-              treatment: {
-                recommendations: null,
-                prevention: null
-              },
-              subsidy: {
-                eligible: false,
-                details: null
-              }
-            }
-          });
-        }
-      } else {
-        // Validate next_question data
-        if (data.next_question && typeof data.next_question === 'object') {
-          setCurrentQuestion(data.next_question);
-        } else {
-          console.error('Invalid next_question data:', data.next_question);
-        }
+        setDiagnosis(data.diagnosis || null);
+      } else if (data.next_question) {
+        setCurrentQuestion(data.next_question);
       }
     },
     onError: (error) => {
-      // Show user-friendly error message
       console.error('Submit answer error:', error);
       alert('Failed to submit answer. Please try again.');
     }
   });
 
-  // Start session on component mount
   useEffect(() => {
     startSessionMutation.mutate();
   }, []);
 
   const handleAnswerSubmit = (answer) => {
-    // Validate required data before API call
-    if (!currentQuestion) {
-      return;
-    }
-    
-    if (!sessionId) {
-      return;
-    }
-
-    const questionId = currentQuestion?.id;
-    if (!questionId || isNaN(questionId)) {
-      return;
-    }
-
-    if (!answer || answer.trim() === '') {
-      return;
-    }
+    if (!currentQuestion || !sessionId) return;
+    const questionId = currentQuestion.id;
+    if (!questionId || !answer || answer.trim() === '') return;
 
     setAnswers(prev => ({
       ...prev,
-      [questionId]: {
-        question: currentQuestion.text,
-        answer: answer
-      }
+      [questionId]: { question: currentQuestion.text, answer: answer }
     }));
     
-    const mutationData = {
+    submitAnswerMutation.mutate({
       session_id: sessionId,
       question_id: parseInt(questionId),
       answer: answer.trim()
-    };
-    
-    submitAnswerMutation.mutate(mutationData);
+    });
   };
 
   const resetDetection = () => {
-    setSessionId(null);
-    setCurrentQuestion(null);
-    setAnswers({});
-    setProgress(0);
-    setIsCompleted(false);
-    setDiagnosis(null);
     startSessionMutation.mutate();
   };
 
@@ -151,138 +84,68 @@ const DiseaseDetection = () => {
     );
   }
 
-  if (startSessionMutation.error) {
-    return (
-      <div className="card border-red-200 bg-red-50">
-        <div className="flex items-start space-x-3">
-          <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-          <div>
-            <h3 className="text-red-800 font-medium">Initialization Error</h3>
-            <p className="text-red-600 text-sm mt-1">
-              Failed to start disease detection. Please try again.
-            </p>
-            <button
-              onClick={resetDetection}
-              className="btn-secondary mt-3"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Disease Detection</h1>
-        <p className="text-gray-600 mt-2">Interactive Q&A system to identify crop diseases and get treatment recommendations</p>
+        <p className="text-gray-600 mt-2">Interactive Q&A system to identify crop diseases</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Question Section */}
         <div className="lg:col-span-2 space-y-6">
           {!isCompleted ? (
             <>
-              {/* Progress Bar */}
               <div className="card">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700">Progress</span>
                   <span className="text-sm text-gray-500">{Math.round(progress)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  ></div>
+                  <div className="bg-primary-600 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                 </div>
               </div>
 
-              {/* Current Question */}
               {currentQuestion && (
                 <div className="card">
                   <div className="flex items-start space-x-3 mb-6">
                     <Bug className="h-6 w-6 text-primary-600 mt-1" />
                     <div className="flex-1">
-                      <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                        Question {currentQuestion.id}
-                      </h2>
-                      <p className="text-gray-700 text-lg">
-                        {currentQuestion.text}
-                      </p>
-                      <span className="inline-block mt-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                        {currentQuestion.type}
-                      </span>
+                      <h2 className="text-xl font-semibold text-gray-900 mb-2">Question {currentQuestion.id}</h2>
+                      <p className="text-gray-700 text-lg">{currentQuestion.text}</p>
                     </div>
                   </div>
-
-                  {/* Answer Options */}
                   <div className="space-y-3">
                     {currentQuestion.options.map((option, index) => (
                       <button
                         key={index}
                         onClick={() => handleAnswerSubmit(option)}
                         disabled={submitAnswerMutation.isLoading}
-                        className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-primary-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-900">{option}</span>
-                          <ArrowRight className="h-4 w-4 text-gray-400" />
-                        </div>
+                        {option}
                       </button>
                     ))}
                   </div>
-
-                  {submitAnswerMutation.isLoading && (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader className="h-6 w-6 animate-spin text-primary-600" />
-                      <span className="ml-2 text-gray-600">Processing answer...</span>
-                    </div>
-                  )}
                 </div>
               )}
             </>
           ) : (
-            /* Results */
+            // RESULTS SECTION
             <div className="space-y-6">
-              {diagnosis?.disease ? (
+              {diagnosis ? (
                 <>
                   <div className="card">
-                    <div className="flex items-center space-x-3 mb-6">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                      <h2 className="text-xl font-semibold text-gray-900">Diagnosis Complete</h2>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Identified Disease</h3>
-                        <div className="p-4 bg-red-50 rounded-lg">
-                          <h4 className="text-xl font-bold text-red-900">{diagnosis.disease || 'Unknown Disease'}</h4>
-                          <div className="flex items-center space-x-2 mt-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${getSeverityColor(diagnosis?.summary?.disease?.severity)}`}>
-                              {diagnosis?.summary?.disease?.severity || 'Unknown'} Severity
-                            </span>
-                            <span className="text-sm text-gray-600">
-                              Confidence: {diagnosis?.confidence ? ((diagnosis.confidence * 100).toFixed(1)) : 'Unknown'}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Symptoms</h3>
-                        <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                          {diagnosis?.summary?.disease?.symptoms || 'No specific symptoms identified'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Cause</h3>
-                        <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                          {diagnosis?.summary?.disease?.cause || 'Cause not identified'}
-                        </p>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Diagnosis Complete</h2>
+                    <div className="p-4 bg-red-50 rounded-lg">
+                      {/* FIX: Access .name property instead of the whole object */}
+                      <h4 className="text-xl font-bold text-red-900">{diagnosis.disease?.name || 'Unknown Disease'}</h4>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${getSeverityColor(diagnosis.disease?.severity)}`}>
+                          {diagnosis.disease?.severity || 'N/A'} Severity
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          Confidence: {(diagnosis.confidence * 100).toFixed(1)}%
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -290,101 +153,24 @@ const DiseaseDetection = () => {
                   <div className="card">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Treatment & Prevention</h3>
                     <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Treatment Recommendations</h4>
-                        <p className="text-gray-700 bg-blue-50 p-3 rounded-lg">
-                          {diagnosis?.summary?.treatment?.recommendations || 'No specific treatment recommendations available'}
-                        </p>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Prevention Measures</h4>
-                        <p className="text-gray-700 bg-green-50 p-3 rounded-lg">
-                          {diagnosis?.summary?.treatment?.prevention || 'No specific prevention measures available'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {diagnosis?.summary?.subsidy?.eligible && (
-                    <div className="card border-green-200 bg-green-50">
-                      <h3 className="text-lg font-semibold text-green-900 mb-2">
-                        🎉 Government Subsidy Available
-                      </h3>
-                      <p className="text-green-800">
-                        {diagnosis?.summary?.subsidy?.details || 'Subsidy details not available'}
+                      <p className="text-gray-700 bg-blue-50 p-3 rounded-lg">
+                        <strong>Treatment:</strong> {diagnosis.treatment?.recommendations || 'No recommendations'}
+                      </p>
+                      <p className="text-gray-700 bg-green-50 p-3 rounded-lg">
+                        <strong>Prevention:</strong> {diagnosis.treatment?.prevention || 'No prevention steps'}
                       </p>
                     </div>
-                  )}
+                  </div>
                 </>
               ) : (
-                <div className="card">
-                  <div className="text-center py-8">
-                    <AlertTriangle className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Clear Diagnosis</h3>
-                    <p className="text-gray-600 mb-4">
-                      Based on your answers, we couldn't confidently identify a specific disease. 
-                      The confidence score is {diagnosis?.confidence ? ((diagnosis.confidence * 100).toFixed(1)) : 'Unknown'}%.
-                    </p>
-                    <p className="text-gray-700 bg-yellow-50 p-3 rounded-lg text-sm">
-                      Consider consulting with a local agricultural expert or visiting the nearest 
-                      agricultural extension office for personalized advice.
-                    </p>
-                  </div>
+                <div className="card text-center py-8">
+                  <AlertTriangle className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
+                  <p>No clear diagnosis found.</p>
                 </div>
               )}
-
-              <button
-                onClick={resetDetection}
-                className="btn-primary w-full"
-              >
-                Start New Detection
-              </button>
+              <button onClick={resetDetection} className="btn-primary w-full">Start New Detection</button>
             </div>
           )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Answer History */}
-          <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Answers</h3>
-            <div className="space-y-3">
-              {Object.entries(answers).map(([questionId, answer]) => (
-                <div key={questionId} className="border-l-4 border-primary-500 pl-3">
-                  <p className="text-sm font-medium text-gray-700">Question {questionId}</p>
-                  <p className="text-sm text-gray-600">{answer.question}</p>
-                  <p className="text-sm text-gray-600">{answer.answer}</p>
-                </div>
-              ))}
-              {Object.keys(answers).length === 0 && (
-                <p className="text-sm text-gray-500 italic">No answers yet</p>
-              )}
-            </div>
-          </div>
-
-          {/* Tips */}
-          <div className="card bg-blue-50 border-blue-200">
-            <h3 className="text-lg font-semibold text-blue-900 mb-4">💡 Tips</h3>
-            <ul className="space-y-2 text-sm text-blue-800">
-              <li>• Answer questions based on actual field observations</li>
-              <li>• Be as specific as possible about symptoms</li>
-              <li>• Consider the timeline of symptom appearance</li>
-              <li>• Note any visible insects or pests</li>
-              <li>• Check multiple plants for consistent symptoms</li>
-            </ul>
-          </div>
-
-          {/* Emergency Contact */}
-          <div className="card bg-red-50 border-red-200">
-            <h3 className="text-lg font-semibold text-red-900 mb-2">🚨 Emergency Contact</h3>
-            <p className="text-sm text-red-800 mb-2">
-              For severe outbreaks or urgent assistance:
-            </p>
-            <div className="text-sm text-red-700">
-              <p>State Agriculture Helpline: 1800-180-1551</p>
-              <p>District Agriculture Office: Contact local office</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
