@@ -28,17 +28,53 @@ const DiseaseDetection = () => {
   // Submit answer mutation
   const submitAnswerMutation = useMutation(submitDiseaseAnswer, {
     onSuccess: (data) => {
-      setProgress(data.progress);
+      // Validate response data
+      if (!data || typeof data !== 'object') {
+        console.error('Invalid response data:', data);
+        return;
+      }
+      
+      setProgress(data.progress || 0);
       
       if (data.completed) {
         setIsCompleted(true);
-        setDiagnosis(data.diagnosis);
+        // Validate diagnosis data before setting
+        if (data.diagnosis && typeof data.diagnosis === 'object') {
+          setDiagnosis(data.diagnosis);
+        } else {
+          // Set empty diagnosis if data is invalid
+          setDiagnosis({
+            disease: null,
+            confidence: 0,
+            summary: {
+              disease: {
+                severity: null,
+                symptoms: null,
+                cause: null
+              },
+              treatment: {
+                recommendations: null,
+                prevention: null
+              },
+              subsidy: {
+                eligible: false,
+                details: null
+              }
+            }
+          });
+        }
       } else {
-        setCurrentQuestion(data.next_question);
+        // Validate next_question data
+        if (data.next_question && typeof data.next_question === 'object') {
+          setCurrentQuestion(data.next_question);
+        } else {
+          console.error('Invalid next_question data:', data.next_question);
+        }
       }
     },
     onError: (error) => {
       // Show user-friendly error message
+      console.error('Submit answer error:', error);
       alert('Failed to submit answer. Please try again.');
     }
   });
@@ -223,13 +259,13 @@ const DiseaseDetection = () => {
                       <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">Identified Disease</h3>
                         <div className="p-4 bg-red-50 rounded-lg">
-                          <h4 className="text-xl font-bold text-red-900">{diagnosis.disease}</h4>
+                          <h4 className="text-xl font-bold text-red-900">{diagnosis.disease || 'Unknown Disease'}</h4>
                           <div className="flex items-center space-x-2 mt-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${getSeverityColor(diagnosis.summary.disease.severity)}`}>
-                              {diagnosis.summary.disease.severity} Severity
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${getSeverityColor(diagnosis?.summary?.disease?.severity)}`}>
+                              {diagnosis?.summary?.disease?.severity || 'Unknown'} Severity
                             </span>
                             <span className="text-sm text-gray-600">
-                              Confidence: {(diagnosis.confidence * 100).toFixed(1)}%
+                              Confidence: {diagnosis?.confidence ? ((diagnosis.confidence * 100).toFixed(1)) : 'Unknown'}%
                             </span>
                           </div>
                         </div>
@@ -238,14 +274,14 @@ const DiseaseDetection = () => {
                       <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">Symptoms</h3>
                         <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                          {diagnosis.summary.disease.symptoms}
+                          {diagnosis?.summary?.disease?.symptoms || 'No specific symptoms identified'}
                         </p>
                       </div>
 
                       <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">Cause</h3>
                         <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                          {diagnosis.summary.disease.cause}
+                          {diagnosis?.summary?.disease?.cause || 'Cause not identified'}
                         </p>
                       </div>
                     </div>
@@ -257,25 +293,25 @@ const DiseaseDetection = () => {
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">Treatment Recommendations</h4>
                         <p className="text-gray-700 bg-blue-50 p-3 rounded-lg">
-                          {diagnosis.summary.treatment.recommendations}
+                          {diagnosis?.summary?.treatment?.recommendations || 'No specific treatment recommendations available'}
                         </p>
                       </div>
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">Prevention Measures</h4>
                         <p className="text-gray-700 bg-green-50 p-3 rounded-lg">
-                          {diagnosis.summary.treatment.prevention}
+                          {diagnosis?.summary?.treatment?.prevention || 'No specific prevention measures available'}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {diagnosis.summary.subsidy?.eligible && (
+                  {diagnosis?.summary?.subsidy?.eligible && (
                     <div className="card border-green-200 bg-green-50">
                       <h3 className="text-lg font-semibold text-green-900 mb-2">
                         🎉 Government Subsidy Available
                       </h3>
                       <p className="text-green-800">
-                        {diagnosis.summary.subsidy.details}
+                        {diagnosis?.summary?.subsidy?.details || 'Subsidy details not available'}
                       </p>
                     </div>
                   )}
@@ -287,7 +323,7 @@ const DiseaseDetection = () => {
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Clear Diagnosis</h3>
                     <p className="text-gray-600 mb-4">
                       Based on your answers, we couldn't confidently identify a specific disease. 
-                      The confidence score is {(diagnosis?.confidence * 100).toFixed(1)}%.
+                      The confidence score is {diagnosis?.confidence ? ((diagnosis.confidence * 100).toFixed(1)) : 'Unknown'}%.
                     </p>
                     <p className="text-gray-700 bg-yellow-50 p-3 rounded-lg text-sm">
                       Consider consulting with a local agricultural expert or visiting the nearest 
