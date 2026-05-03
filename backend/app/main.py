@@ -37,7 +37,7 @@ app = FastAPI(
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[https://krishimitra-ai-yvs.vercel.app],
+    allow_origins=["https://krishimitra-ai-yvs.vercel.app"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
